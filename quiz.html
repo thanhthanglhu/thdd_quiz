@@ -260,7 +260,15 @@ const firebaseConfig = {
 
       try {
         const text = await file.text();
-        try { examData = JSON.parse(text); }
+        try { examData = JSON.parse(text);
+     if (examData && Array.isArray(examData.questions)) {
+       examData.questions = examData.questions.map(function(q){
+         var t = (q.type||'').toLowerCase();
+         if (t === 'multiple') q.type = 'multi';
+         return q;
+       });
+     }
+}
         catch(e){ alert('JSON lỗi cú pháp!'); return; }
 
         $('startPage').classList.add('hidden');
@@ -329,7 +337,7 @@ $('stickySubmit').classList.add('show');
       const box = $('quizMain'); box.innerHTML='';
 
       if(q.type==='match'){ renderMatchQuestion(index); return; }
-      if(q.type==='single' || q.type==='multi'){ renderChoiceQuestion(index, q.type==='multi'); return; }
+      if(q.type==='single' || q.type==='multi' || q.type==='multiple'){ renderChoiceQuestion(index, q.type==='multi' || q.type==='multiple'); return; }
       if(q.type==='polar'){ renderPolarQuestion(index); return; }
 
       const div=document.createElement('div');
@@ -530,7 +538,7 @@ $('stickySubmit').classList.add('show');
       const btn=$('navBtn'+qIndex); if(!btn) return;
       const q=examData.questions[qIndex]; let filled=false;
       if(q.type==='match'){ filled=Object.keys(answers[qIndex]||{}).length>0; }
-      else if(q.type==='multi'){ filled=(answers[qIndex]||[]).length>0; }
+      else if(q.type==='multi' || q.type==='multiple'){ filled=(answers[qIndex]||[]).length>0; }
       else{ filled=Number.isInteger(answers[qIndex]); }
       btn.classList.toggle('answered-btn',filled);
     }
@@ -546,7 +554,7 @@ $('stickySubmit').classList.add('show');
           if(q.type==='match'){
             const map=answers[idx]||{};
             q.pairs.forEach((p,i)=>{ if(Number(map[i])===i) score+=(p.score||0); });
-          }else if(q.type==='multi'){
+          }else if(q.type==='multi' || q.type==='multiple'){
             const picked=new Set(answers[idx]||[]);
             const correctIdx=q.options.map((o,i)=>o.correct?i:null).filter(i=>i!==null);
             const allCorrect=correctIdx.every(i=>picked.has(i)) && picked.size===correctIdx.length;

@@ -1224,5 +1224,93 @@ function refreshPolarRowLabels(){
 })();
 </script>
 
+
+<!-- Link phát đề qua LAN (vá nhẹ, không đụng login/exportJSON) -->
+<div id="shareLinkBox" style="display:none;margin-top:12px">
+  <label style="font-weight:600;display:block;margin-bottom:6px">Link phát đề qua LAN</label>
+  <textarea id="shareLink" readonly
+    style="width:100%;min-height:64px;padding:8px;border:1px solid #ddd;border-radius:8px"></textarea>
+  <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <button id="copyShareLink" type="button" style="padding:6px 12px">Copy link</button>
+    <small style="opacity:.75">* Sau khi tải xong, nhớ chép file đề vào thư mục <code>/exams/</code> của server.</small>
+  </div>
+</div>
+
+
+<script>
+(function () {
+  function showShareLink(fileName) {
+    var box = document.getElementById('shareLinkBox');
+    var ta  = document.getElementById('shareLink');
+    if (!box || !ta) return;
+    var origin = location.origin; // IP + cổng hiện tại
+    var url = origin + '/quiz.html?exam=' + encodeURIComponent('/exams/' + fileName) + '&autostart=1';
+    ta.value = url;
+    box.style.display = 'block';
+    var btn = document.getElementById('copyShareLink');
+    if (btn) btn.onclick = function () {
+      (navigator.clipboard && navigator.clipboard.writeText)
+        ? navigator.clipboard.writeText(ta.value).catch(function(){ alert('Copy thủ công: Ctrl+C'); })
+        : alert('Copy thủ công: Ctrl+C');
+    };
+  }
+  var origDownloadText = window.downloadText;
+  if (typeof origDownloadText === 'function') {
+    window.downloadText = function (text, mime, name) {
+      // Gọi hàm gốc để tải file như cũ
+      origDownloadText.apply(this, arguments);
+      try {
+        var isJSON = /json/i.test(mime) || (/\.json$/i).test(name||'');
+        if (isJSON && name) showShareLink(name);
+      } catch (e) { console.warn('share link wrapper error', e); }
+    };
+  }
+})();
+</script>
+
 </body>
 </html>
+
+
+<!-- === Minimal patch: multi-correct fix (safe, no other changes) === -->
+<script>
+// Ensure the 'Đáp án đúng' inputs are the right type when switching between Single/Multiple
+(function(){
+  function enforceCorrectInputType(){
+    var sel = document.getElementById('questionType');
+    if(!sel) return;
+    var isSingle = (sel.value === 'single');
+    var picks = document.querySelectorAll('#optionsContainer input[name="correctPick"]');
+    var firstSeen = false;
+    picks.forEach(function(oldInp){
+      var wasChecked = !!oldInp.checked;
+      var parent = oldInp.parentNode;
+      // Replace node to avoid browser quirks when changing input.type
+      var newInp = document.createElement('input');
+      newInp.type = isSingle ? 'radio' : 'checkbox';
+      newInp.name = 'correctPick';
+      newInp.checked = wasChecked;
+      parent.replaceChild(newInp, oldInp);
+    });
+    if(isSingle){
+      // Keep only the first checked if user had ticked many before switching to single
+      var radios = document.querySelectorAll('#optionsContainer input[name="correctPick"]');
+      radios.forEach(function(r){
+        if(r.checked){
+          if(!firstSeen){ firstSeen = true; }
+          else { r.checked = false; }
+        }
+      });
+    }
+  }
+
+  // Run when type changes
+  document.addEventListener('change', function(e){
+    if(e.target && e.target.id === 'questionType'){
+      enforceCorrectInputType();
+    }
+  });
+  // Run once on load (in case default type/rows already rendered)
+  document.addEventListener('DOMContentLoaded', enforceCorrectInputType);
+})();
+</script>
